@@ -5,33 +5,34 @@ import java.util.Arrays;
 
 public class AirfoilSVGGenerator {
 
-    // Simple natural cubic spline interpolator
-    public static class Spline {
+    public static class NaturalSpline {
         private final double[] x, a, b, c, d;
 
-        public Spline(double[] x, double[] y) {
+        public NaturalSpline(double[] x, double[] y) {
             int n = x.length;
             this.x = Arrays.copyOf(x, n);
-            a = Arrays.copyOf(y, n);
-            b = new double[n - 1];
-            c = new double[n];
-            d = new double[n - 1];
+            this.a = Arrays.copyOf(y, n);
+            this.b = new double[n - 1];
+            this.c = new double[n];
+            this.d = new double[n - 1];
 
             double[] h = new double[n - 1];
+            double[] alpha = new double[n];
+
             for (int i = 0; i < n - 1; i++) {
                 h[i] = x[i + 1] - x[i];
             }
 
-            double[] alpha = new double[n - 1];
             for (int i = 1; i < n - 1; i++) {
-                alpha[i] = (3 / h[i]) * (a[i + 1] - a[i]) - (3 / h[i - 1]) * (a[i] - a[i - 1]);
+                alpha[i] = (3.0 / h[i]) * (a[i + 1] - a[i]) - (3.0 / h[i - 1]) * (a[i] - a[i - 1]);
             }
 
             double[] l = new double[n];
             double[] mu = new double[n];
             double[] z = new double[n];
-            l[0] = 1;
-            mu[0] = z[0] = 0;
+
+            l[0] = 1.0;
+            mu[0] = z[0] = 0.0;
 
             for (int i = 1; i < n - 1; i++) {
                 l[i] = 2 * (x[i + 1] - x[i - 1]) - h[i - 1] * mu[i - 1];
@@ -39,13 +40,13 @@ public class AirfoilSVGGenerator {
                 z[i] = (alpha[i] - h[i - 1] * z[i - 1]) / l[i];
             }
 
-            l[n - 1] = 1;
-            z[n - 1] = c[n - 1] = 0;
+            l[n - 1] = 1.0;
+            z[n - 1] = c[n - 1] = 0.0;
 
             for (int j = n - 2; j >= 0; j--) {
                 c[j] = z[j] - mu[j] * c[j + 1];
-                b[j] = (a[j + 1] - a[j]) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
-                d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
+                b[j] = (a[j + 1] - a[j]) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3.0;
+                d[j] = (c[j + 1] - c[j]) / (3.0 * h[j]);
             }
         }
 
@@ -70,33 +71,36 @@ public class AirfoilSVGGenerator {
         };
 
         double[] lowerY = new double[]{
-            0.035, 0.0147, 0.0093, 0.0063, 0.0042, 0.0015, 0.0003,
+            0.033, 0.0147, 0.0093, 0.0063, 0.0042, 0.0015, 0.0003,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
         };
 
-        Spline upperSpline = new Spline(chordPercent, upperY);
-        Spline lowerSpline = new Spline(chordPercent, lowerY);
+        NaturalSpline upperSpline = new NaturalSpline(chordPercent, upperY);
+        NaturalSpline lowerSpline = new NaturalSpline(chordPercent, lowerY);
 
         StringBuilder path = new StringBuilder("M ");
+        double scale = 1000;
+        double chordLineY = 500;
 
         for (double x = 0.0; x <= 1.0; x += 0.01) {
             double y = upperSpline.interpolate(x);
-            path.append(String.format("%.4f,%.4f ", x * 1000, (1 - y) * 1000));
+            path.append(String.format("%.4f,%.4f ", x * scale, chordLineY - y * scale));
         }
 
         for (double x = 1.0; x >= 0.0; x -= 0.01) {
             double y = lowerSpline.interpolate(x);
-            path.append(String.format("%.4f,%.4f ", x * 1000, (1 - y) * 1000));
+            path.append(String.format("%.4f,%.4f ", x * scale, chordLineY + y * scale));
         }
 
         path.append("Z");
 
-        try (FileWriter writer = new FileWriter("clark_y_fixed.svg")) {
+        try (FileWriter writer = new FileWriter("clark_y_natural_spline.svg")) {
             writer.write("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1000\" height=\"1000\" viewBox=\"0 0 1000 1000\">\n");
             writer.write("<path d=\"" + path.toString() + "\" fill=\"none\" stroke=\"black\"/>\n");
             writer.write("</svg>\n");
         }
 
-        System.out.println("SVG with global spline saved to clark_y_fixed.svg");
+        System.out.println("SVG with natural spline saved to clark_y_natural_spline.svg");
     }
 }
+
